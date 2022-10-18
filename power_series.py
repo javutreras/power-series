@@ -3,12 +3,13 @@ from typing import Callable
 
 
 class PowerSeries:
-    def __init__(self, coefs: Callable[[int], Fraction], order: int = 0) -> None:
-        self.formula = coefs
-        if not order or order >= 0:
-            self.find_order()
+    def __init__(self, coefficient_formula: Callable[[int], Fraction], order: int = 0) -> None:
+        self.formula = coefficient_formula
+        self.order = order
+        if not self.order or self.order >= 0:
+            self.get_order()
 
-    def coef(self, n: int) -> Fraction:
+    def __call__(self, n: int) -> Fraction:
         """Return coefficient of z^n in power series expansion.
 
         Args:
@@ -20,11 +21,11 @@ class PowerSeries:
         if self.order == None or n < self.order:
             return Fraction(0)
         else:
-            return self.formula(n)
+            return Fraction(self.formula(n))
 
-    def find_order(self) -> None:
+    def get_order(self) -> None:
         for i in range(11):
-            if self.coef(i) != 0:
+            if self(i) != 0:
                 self.order = i
                 return
         self.order = None
@@ -32,31 +33,31 @@ class PowerSeries:
 
     def term(self, n: int) -> str:
         if n == 0:
-            return '%s' % (self.coef(n),)
+            return '%s' % (self(n),)
         elif n == 1:
-            return '(%s)z' % (self.coef(n),)
+            return '(%s)z' % (self(n),)
         else:
-            return '(%s)z^%s' % (self.coef(n), n)
+            return '(%s)z^%s' % (self(n), n)
 
-    def print(self, length: int = 5) -> str:
-        if not self.order:
+    def __str__(self, length: int = 5) -> str:
+        if self.order == None:
             return '0'
         terms = [self.term(i + self.order)
-                 for i in range(length) if self.coef(i + self.order) != 0]
+                 for i in range(length) if self(i + self.order) != 0]
         if not terms:
             return '0'
         else:
             return ' + '.join(terms)
 
-    def negative(self) -> 'PowerSeries':
+    def __neg__(self) -> 'PowerSeries':
         """Obtain additive inverse of self.
 
         Returns:
             PowerSeries: self with changed sign.
         """
-        return PowerSeries(lambda n: -self.coef(n), order=self.order)
+        return PowerSeries(lambda n: -self(n), order=self.order)
 
-    def plus(self, other: 'PowerSeries') -> 'PowerSeries':
+    def __add__(self, other: 'PowerSeries') -> 'PowerSeries':
         """Sum a given power series to self.
 
         Args:
@@ -71,9 +72,9 @@ class PowerSeries:
             sum_order = self.order
         else:
             sum_order = min(self.order, other.order)
-        return PowerSeries(lambda n: self.coef(n) + other.coef(n), order=sum_order)
+        return PowerSeries(lambda n: self(n) + other(n), order=sum_order)
 
-    def minus(self, other: 'PowerSeries') -> 'PowerSeries':
+    def __sub__(self, other: 'PowerSeries') -> 'PowerSeries':
         """Substract a given power series from self.
 
         Args:
@@ -82,7 +83,7 @@ class PowerSeries:
         Returns:
             PowerSeries: self minus other.
         """
-        return self.plus(other.negative())
+        return self + (-other)
 
     def times_nth(self, other: 'PowerSeries', n: int) -> Fraction:
         """Return the coefficient of z^n in expansion of self*other.
@@ -96,11 +97,11 @@ class PowerSeries:
         """
         if self.order == None or other.order == None:
             return Fraction(0)
-        terms = [self.coef(i) * other.coef(n-i)
-                 for i in range(self.order, other.order + n + 1)]
+        terms = [self(i) * other(n-i)
+                 for i in range(self.order, - other.order + n + 1)]
         return sum(terms)
 
-    def times(self, other: 'PowerSeries') -> 'PowerSeries':
+    def __mul__(self, other: 'PowerSeries') -> 'PowerSeries':
         """Multiply a given power series with self.
 
         Args:
@@ -113,6 +114,17 @@ class PowerSeries:
             return PowerSeries(lambda n: 0, order=None)
         return PowerSeries(lambda n: self.times_nth(other, n), order=self.order + other.order)
 
-    def divide_nth(self, other: 'PowerSeries', n: int) -> 'PowerSeries':
-        if other.order == None:
+    def invertible_factor(self) -> 'PowerSeries':
+        if self.order == None:
+            raise ValueError('Zero not invertible')
+        return self * PowerSeries(lambda n : 1*(n==-self.order), order=-self.order)
+
+    def inverse_nth(self, n: int) -> Fraction:
+        if self.order == None:
             raise ValueError('Division by zero')
+        inv_factor = self.invertible_factor()
+        if n == 0:
+            return 1 / inv_factor(0)
+        else:
+            terms = [self.inverse_nth(i)*inv_factor(n-i) for i in range(n)]
+            return - sum(terms) / inv_factor(0)
