@@ -1,5 +1,5 @@
 import math
-from power_series import PowerSeries
+from power_series import PowerSeries, verbose_multiplication
 from fractions import Fraction
 
 def zero() -> PowerSeries:
@@ -27,3 +27,8 @@ def monomial(degree: int, coef :int = 1) -> PowerSeries:
     if coef == 0:
         return zero()
     return PowerSeries(lambda n: coef*(n==degree), order=degree)
+
+def polynomial(coefs: list[int]) -> PowerSeries:
+    if not coefs:
+        return zero()
+    return PowerSeries(lambda n: sum([coefs[i]*(n==i) for i in range(len(coefs))]))
